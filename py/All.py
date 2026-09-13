@@ -1,3 +1,12 @@
+import signal
+import sys
+
+def handle_term(signum, frame):
+    print("Received SIGTERM — cleaning up and exiting", flush=True)
+    # do any necessary cleanup here
+    sys.exit(143)
+
+signal.signal(signal.SIGTERM, handle_term)
 import socket
 import re
 import time
