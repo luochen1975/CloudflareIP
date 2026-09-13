@@ -1,5 +1,8 @@
 name: Vless
 
+permissions:
+  contents: write
+  
 on:
   push:              # 每次 push 时触发
   schedule:
@@ -12,7 +15,6 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
-
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
