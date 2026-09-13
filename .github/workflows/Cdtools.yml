@@ -1,5 +1,8 @@
 name: Cdtools
 
+permissions:
+  contents: write
+  
 on:
   push:              # 每次 push 时触发
   schedule:
