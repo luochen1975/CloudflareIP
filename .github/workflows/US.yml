@@ -1,14 +1,18 @@
 name: US
 
+permissions:
+  contents: write   # 允许 GITHUB_TOKEN 推送
+
 on:
-  push:              # 每次 push 时触发
+  push:
   schedule:
-   - cron: '0 */1 * * *' # 每3小时运行一次
-  workflow_dispatch:      # 允许手动触发
+    - cron: '0 */1 * * *'
+  workflow_dispatch:
 
 jobs:
   run-script:
     runs-on: ubuntu-latest
+    timeout-minutes: 30    # 可选：防止脚本无限挂起
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -24,12 +28,19 @@ jobs:
 
       - name: Run script and save output
         run: |
-          python py/US.py > US.txt
+          set -e
+          # 限制脚本最长运行时间（bash timeout），避免挂起（可按需调整）
+          timeout 1800s python py/US.py > US.txt
 
-      - name: Commit result
+      - name: Commit result (only when script succeeded and changes exist)
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add US.txt
+          # 如果没有变更，commit 会失败并打印 "No changes..."
           git commit -m "Auto update US.txt [skip ci]" || echo "No changes to commit"
-          git push
+          # 仅当上面 commit 成功时才执行 push（避免无权限或空推）
+          if git rev-parse --verify --quiet HEAD >/dev/null; then
+            # 当有提交发生时 push；GITHUB_TOKEN 会被 checkout action 持续使用
+            git push
+          fi
