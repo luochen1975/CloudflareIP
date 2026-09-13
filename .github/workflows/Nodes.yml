@@ -1,5 +1,8 @@
 name: Nodes
 
+permissions:
+  contents: write
+  
 on:
   push:              # 每次 push 时触发
   schedule:
