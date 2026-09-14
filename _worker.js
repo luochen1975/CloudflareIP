@@ -6,11 +6,24 @@
 
 import { connect } from 'cloudflare:sockets';
 
-let 我的VL密钥 = '91cf91f1-e4dd-4bdc-89a6-a3089c24f3b4';//UUID
+let 我的VL密钥 = '？';//UUID
 let 反代IP = 'proxyip.cmliussss.net'; //反代IP
 
 export default {
   async fetch(访问请求, env) {
+    try {
+      return await 处理HTTP请求(访问请求, env);
+    } catch (e) {
+      // 诊断模式：把异常直接显示在页面上，定位问题后可改回 1101 默认行为
+      return new Response(`Worker 内部错误: ${e.message}\n\n堆栈:\n${e.stack}`, {
+        status: 500,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+      });
+    }
+  }
+};
+
+async function 处理HTTP请求(访问请求, env) {
     if (访问请求.headers.get('Upgrade') === 'websocket') {
       const 读取路径 = decodeURIComponent(访问请求.url.replace(/^https?:\/\/[^/]+/, ''));
       反代IP = 读取路径.match(/ip=([^&]+)/)?.[1] || 反代IP;
