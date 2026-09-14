@@ -42,7 +42,21 @@ vless://${我的VL密钥}@104.26.0.0:443?encryption=none&security=tls&sni=${部�
 vless://${我的VL密钥}@188.114.96.0:443?encryption=none&security=tls&sni=${部署域名}&fp=random&type=ws&host=${部署域名}&path=pyip%3D${反代IP}#nl 荷兰 NL
 
 更多节点使用手搓节点生成器： http://ip.cloudip.ggff.net`, { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
-        } else {
+        } 
+       // ↓↓↓ 新增：订阅端点 ↓↓↓
+        else if (请求路径 === '/subvless') {
+            const res = await fetch('https://raw.githubusercontent.com/luochen1975/CloudflareIP/main/Me.txt');
+            const txt = await res.text();
+            const links = txt.trim().split('\n').map(line => {
+                const [ip, name = 'CF'] = line.split('#');
+                if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) return '';
+                return `vless://${我的VL密钥}@${ip}:443?encryption=none&security=tls&sni=${部署域名}&fp=random&type=ws&host=${部署域名}&path=pyip%3D${反代IP}#${name}`;
+            }).filter(Boolean);
+            const b64 = btoa(links.join('\n'));
+            return new Response(b64, { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+        }
+        // ↑↑↑ 新增结束 ↑↑↑
+        else {
             // 其他路径返回404响应
             return new Response('部署成功，使用你的路径查看节点信息！', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
         }
