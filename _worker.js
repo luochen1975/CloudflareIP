@@ -6,7 +6,7 @@
 
 import { connect } from 'cloudflare:sockets';
 
-let 我的VL密钥 = '1bc046d6-8124-414b-b4f9-e70966480bb5';//UUID
+let 我的VL密钥 = '91cf91f1-e4dd-4bdc-89a6-a3089c24f3b4';//UUID
 let 反代IP = 'proxyip.cmliussss.net'; //反代IP
 
 export default {
@@ -43,19 +43,56 @@ vless://${我的VL密钥}@188.114.96.0:443?encryption=none&security=tls&sni=${�
 
 更多节点使用手搓节点生成器： http://ip.cloudip.ggff.net`, { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
         } 
-       // ↓↓↓ 新增：订阅端点 ↓↓↓
+       // ↓↓↓ 订阅端点（多源轮询 + 超时 + 兜底） ↓↓↓
         else if (请求路径 === '/subvless') {
-            const res = await fetch('https://raw.githubusercontent.com/luochen1975/CloudflareIP/main/Me.txt');
-            const txt = await res.text();
-            const links = txt.trim().split('\n').map(line => {
-                const [ip, name = 'CF'] = line.split('#');
-                if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) return '';
-                return `vless://${我的VL密钥}@${ip}:443?encryption=none&security=tls&sni=${部署域名}&fp=random&type=ws&host=${部署域名}&path=pyip%3D${反代IP}#${name}`;
-            }).filter(Boolean);
-            const b64 = btoa(links.join('\n'));
-            return new Response(b64, { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+            // 按优先级排列：镜像源优先，官方源兜底；全部失败则用内置节点
+            const 订阅源列表 = [
+                'https://gith-ub.lzgzg.qzz.io/https://raw.githubusercontent.com/luochen1975/CloudflareIP/main/Me.txt',
+                'https://raw.githubusercontent.com/luochen1975/CloudflareIP/main/Me.txt',
+            ];
+            const 兜底节点 = [
+                '104.18.0.0#us 兜底',
+                '108.162.192.0#sg 兜底',
+                '188.114.96.0#nl 兜底',
+            ];
+
+            let 原始文本 = '';
+            for (const 源地址 of 订阅源列表) {
+                const 控制器 = new AbortController();
+                const 定时器 = setTimeout(() => 控制器.abort(), 6000); // 6秒超时，防边缘节点卡死
+                try {
+                    const 响应 = await fetch(源地址, {
+                        signal: 控制器.signal,
+                        cf: { cacheTtl: 300, cacheEverything: true }, // 边缘缓存5分钟，少打源站
+                    });
+                    if (!响应.ok) continue; // HTTP 错误状态（404/503...）也算失败，换下一个源
+                    const 内容 = await 响应.text();
+                    if (内容.trim()) { 原始文本 = 内容; break; }
+                } catch (e) {
+                    console.error('订阅源拉取失败:', 源地址, e); // 超时/连接拒绝在这里被吃掉，不再崩溃
+                } finally {
+                    clearTimeout(定时器);
+                }
+            }
+
+            const 行列表 = (原始文本.trim() || 兜底节点.join('\n')).split('\n');
+            const 链接列表 = [];
+            for (const 行内容 of 行列表) {
+                const 清洗后 = 行内容.trim();
+                if (!清洗后 || 清洗后.startsWith('#')) continue; // 跳过空行和注释行
+                const [IP部分, 名称部分 = 'CF'] = 清洗后.split('#');
+                const IP = IP部分.trim();
+                if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(IP)) continue; // 只保留合法IPv4
+                const 名称 = 名称部分.trim() || 'CF';
+                链接列表.push(`vless://${我的VL密钥}@${IP}:443?encryption=none&security=tls&sni=${部署域名}&fp=random&type=ws&host=${部署域名}&path=pyip%3D${反代IP}#${encodeURIComponent(名称)}`);
+            }
+            if (链接列表.length === 0) {
+                return new Response('no valid nodes', { status: 502 });
+            }
+            const Base64订阅 = btoa(链接列表.join('\n'));
+            return new Response(Base64订阅, { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
         }
-        // ↑↑↑ 新增结束 ↑↑↑
+        // ↑↑↑ 订阅端点结束 ↑↑↑
         else {
             // 其他路径交给静态资源（生成器页面）
             return env.ASSETS.fetch(访问请求);
