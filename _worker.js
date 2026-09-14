@@ -113,7 +113,7 @@ vless://${我的VL密钥}@188.114.96.0:443?encryption=none&security=tls&sni=${�
         }
     }
   }
-};
+
 async function 启动传输管道(WS接口, TCP接口) {
   let 识别地址类型, 访问地址, 地址长度, 首包数据 = false, 首包处理完成 = null, 传输数据, 读取数据, 传输队列 = Promise.resolve();
   try {
